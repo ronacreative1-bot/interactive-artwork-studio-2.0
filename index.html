@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <title>Atelier — Real-Time Interactive Artwork Studio</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090d18;
+      --panel: rgba(18, 25, 43, .88);
+      --panel-2: #151d31;
+      --line: rgba(185, 202, 255, .13);
+      --muted: #8e9bb7;
+      --text: #f2f5ff;
+      --accent: #9b8cff;
+      --accent-2: #63e6d1;
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; color: var(--text);
+      background:
+        radial-gradient(ellipse at 15% 0%, rgba(108, 85, 210, .18), transparent 35%),
+        radial-gradient(ellipse at 100% 90%, rgba(32, 176, 164, .10), transparent 35%),
+        var(--bg);
+      font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .app { max-width: 1440px; margin: 0 auto; padding: 24px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:22px; }
+    .brand { display:flex; align-items:center; gap:13px; }
+    .logo {
+      width:42px; height:42px; border-radius:14px; display:grid; place-items:center;
+      background: linear-gradient(135deg, #9b8cff, #63e6d1); color:#08111e; font-size:21px; font-weight:900;
+      box-shadow: 0 8px 28px rgba(119, 110, 255, .25);
+    }
+    h1 { font-size:19px; letter-spacing:.01em; margin:0; }
+    .subtitle { color:var(--muted); font-size:12px; margin-top:2px; }
+    .header-actions { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+    .status { display:flex; align-items:center; gap:7px; color:#b9c6df; font-size:12px; margin-right:7px; }
+    .dot { width:7px; height:7px; border-radius:50%; background:#63e6d1; box-shadow:0 0 12px #63e6d1; }
+    .layout { display:grid; grid-template-columns: 260px minmax(0,1fr); gap:18px; align-items:stretch; }
+    .panel, .workspace { border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); box-shadow:0 18px 55px rgba(0,0,0,.18); }
+    .panel { padding:17px; }
+    .panel h2 { font-size:11px; letter-spacing:.13em; color:#aab6d1; text-transform:uppercase; margin:0 0 14px; }
+    .group { padding:0 0 17px; margin:0 0 17px; border-bottom:1px solid var(--line); }
+    .group:last-child { border:0; margin:0; padding:0; }
+    .tool-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .tool {
+      min-height:68px; border:1px solid var(--line); border-radius:13px; background:#11192b; color:#dce4f8;
+      display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:6px; padding:10px;
+      transition:.18s ease;
+    }
+    .tool:hover { border-color:rgba(155,140,255,.55); transform:translateY(-1px); }
+    .tool.active { background:linear-gradient(135deg, rgba(155,140,255,.2), rgba(99,230,209,.08)); border-color:var(--accent); box-shadow:inset 0 0 0 1px rgba(155,140,255,.13); }
+    .tool .emoji { font-size:19px; }
+    .tool span:last-child { font-size:11px; color:#b5c0d8; }
+    .control { margin:13px 0 0; }
+    .control-head { display:flex; justify-content:space-between; gap:8px; color:#d8e0f3; font-size:12px; margin-bottom:8px; }
+    output { color:var(--accent-2); font-variant-numeric:tabular-nums; }
+    input[type="range"] { width:100%; accent-color:var(--accent); }
+    input[type="color"] { width:100%; height:38px; padding:3px; border-radius:9px; border:1px solid var(--line); background:#11192b; }
+    select {
+      width:100%; color:var(--text); background:#11192b; border:1px solid var(--line); border-radius:10px;
+      padding:10px; outline:none;
+    }
+    .toggle-row { display:flex; align-items:center; justify-content:space-between; gap:10px; color:#d8e0f3; font-size:12px; margin-top:13px; }
+    .switch { position:relative; width:39px; height:22px; flex:0 0 auto; }
+    .switch input { opacity:0; width:0; height:0; }
+    .slider {
+      position:absolute; inset:0; background:#303b55; border-radius:30px; transition:.2s;
+    }
+    .slider:before { content:""; position:absolute; width:16px; height:16px; left:3px; top:3px; border-radius:50%; background:white; transition:.2s; }
+    .switch input:checked + .slider { background:#7464d8; }
+    .switch input:checked + .slider:before { transform:translateX(17px); }
+    .workspace { min-width:0; padding:14px; display:flex; flex-direction:column; }
+    .canvas-top { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:2px 3px 13px; }
+    .canvas-title { font-size:13px; font-weight:650; }
+    .canvas-hint { color:var(--muted); font-size:11px; margin-top:2px; }
+    .canvas-actions { display:flex; gap:7px; flex-wrap:wrap; }
+    .btn {
+      border:1px solid var(--line); border-radius:10px; padding:9px 12px; color:#e8edff; background:#151e32;
+      font-size:12px; font-weight:600; transition:.18s ease;
+    }
+    .btn:hover { border-color:rgba(155,140,255,.6); transform:translateY(-1px); }
+    .btn.primary { color:#08111e; border:0; background:linear-gradient(135deg, #a99bff, #6be7d4); }
+    .btn.danger { color:#ffb7c1; }
+    .canvas-wrap {
+      position:relative; flex:1; min-height:520px; overflow:hidden; border-radius:14px;
+      border:1px solid rgba(185,202,255,.15);
+      background-color:#080c17;
+      background-image:linear-gradient(rgba(135,151,190,.045) 1px, transparent 1px),linear-gradient(90deg,rgba(135,151,190,.045) 1px,transparent 1px);
+      background-size:28px 28px;
+    }
+    canvas { display:block; width:100%; height:100%; min-height:520px; touch-action:none; cursor:crosshair; }
+    .canvas-overlay {
+      position:absolute; inset:auto 16px 14px 16px; display:flex; justify-content:space-between; gap:10px;
+      pointer-events:none; color:rgba(205,216,243,.45); font-size:10px; letter-spacing:.04em;
+    }
+    .workspace-footer { display:flex; justify-content:space-between; gap:12px; padding:12px 3px 0; color:var(--muted); font-size:11px; }
+    .kbd { border:1px solid var(--line); background:#121a2c; border-radius:5px; padding:2px 5px; color:#bdc8df; }
+    .mobile-tools { display:none; }
+    @media (max-width: 900px) {
+      .app { padding:16px; }
+      .layout { grid-template-columns:1fr; }
+      .panel { order:2; }
+      .workspace { order:1; }
+      .canvas-wrap, canvas { min-height:420px; }
+      .tool-grid { grid-template-columns:repeat(4,1fr); }
+      .tool { min-height:62px; align-items:center; text-align:center; padding:7px; }
+    }
+    @media (max-width: 560px) {
+      .app { padding:12px; }
+      header { align-items:flex-start; }
+      .status { display:none; }
+      .brand .subtitle { max-width:190px; }
+      .layout { gap:12px; }
+      .workspace { padding:9px; }
+      .canvas-top { align-items:flex-start; flex-direction:column; }
+      .canvas-actions { width:100%; }
+      .canvas-actions .btn { flex:1; }
+      .canvas-wrap, canvas { min-height:360px; }
+      .tool-grid { grid-template-columns:repeat(2,1fr); }
+      .tool { flex-direction:row; justify-content:flex-start; min-height:50px; text-align:left; }
+      .workspace-footer { font-size:10px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div class="brand">
+        <div class="logo">A</div>
+        <div>
+          <h1>ATELIER <span style="color:#8e9bb7;font-weight:400">/ Interactive Art Studio</span></h1>
+          <div class="subtitle">Ruang eksperimen visual — buat, gerakkan, dan simpan karya secara langsung.</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="status"><span class="dot"></span> LIVE CANVAS ACTIVE</div>
+        <button class="btn" id="randomBtn">✦ Karya acak</button>
+        <button class="btn primary" id="exportBtn">↓ Export PNG</button>
+      </div>
+    </header>
+
+    <section class="layout">
+      <aside class="panel">
+        <div class="group">
+          <h2>01 / Pilih alat kreatif</h2>
+          <div class="tool-grid" id="toolGrid">
+            <button class="tool active" data-tool="brush"><span class="emoji">✍️</span><span>Kuas neon</span></button>
+            <button class="tool" data-tool="particles"><span class="emoji">✧</span><span>Partikel</span></button>
+            <button class="tool" data-tool="ripple"><span class="emoji">◎</span><span>Gelombang</span></button>
+            <button class="tool" data-tool="geometry"><span class="emoji">⬡</span><span>Geometri</span></button>
+          </div>
+        </div>
+
+        <div class="group">
+          <h2>02 / Atur tampilan</h2>
+          <div class="control">
+            <div class="control-head"><label for="color">Warna utama</label><output id="colorText">#9B8CFF</output></div>
+            <input type="color" id="color" value="#9b8cff">
+          </div>
+          <div class="control">
+            <div class="control-head"><label for="size">Ukuran kuas</label><output id="sizeValue">18 px</output></div>
+            <input type="range" id="size" min="2" max="80" value="18">
+          </div>
+          <div class="control">
+            <div class="control-head"><label for="intensity">Intensitas efek</label><output id="intensityValue">70%</output></div>
+            <input type="range" id="intensity" min="10" max="100" value="70">
+          </div>
+          <div class="control">
+            <div class="control-head"><label for="background">Latar kanvas</label></div>
+            <select id="background">
+              <option value="#080c17">Midnight</option>
+              <option value="#101526">Deep blue</option>
+              <option value="#17131f">Plum dark</option>
+              <option value="#f4f0e8">Warm paper</option>
+              <option value="#ffffff">White</option>
+            </select>
+          </div>
+          <div class="toggle-row">
+            <span>Simetri horizontal</span>
+            <label class="switch"><input type="checkbox" id="symmetry"><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span>Jejak cahaya</span>
+            <label class="switch"><input type="checkbox" id="glow" checked><span class="slider"></span></label>
+          </div>
+        </div>
+
+        <div class="group">
+          <h2>03 / Animasi</h2>
+          <div class="toggle-row">
+            <span>Auto Art — gerak otomatis</span>
+            <label class="switch"><input type="checkbox" id="autoArt"><span class="slider"></span></label>
+          </div>
+          <div class="control">
+            <div class="control-head"><label for="speed">Kecepatan animasi</label><output id="speedValue">50%</output></div>
+            <input type="range" id="speed" min="10" max="100" value="50">
+          </div>
+          <p style="font-size:10px;color:var(--muted);line-height:1.6;margin:12px 0 0">Tip: gerakkan kursor atau jari di area kanvas. Setiap alat menghasilkan respons visual yang berbeda.</p>
+        </div>
+      </aside>
+
+      <section class="workspace">
+        <div class="canvas-top">
+          <div>
+            <div class="canvas-title">Artboard / 01</div>
+            <div class="canvas-hint">Interaksi langsung · Resolusi ekspor mengikuti ukuran kanvas</div>
+          </div>
+          <div class="canvas-actions">
+            <button class="btn" id="undoBtn">↶ Undo</button>
+            <button class="btn" id="clearBtn">⌫ Bersihkan</button>
+            <button class="btn" id="pauseBtn">Ⅱ Pause</button>
+          </div>
+        </div>
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="artCanvas" aria-label="Kanvas untuk membuat artwork interaktif"></canvas>
+          <div class="canvas-overlay"><span>ATELIER / LIVE GENERATIVE SURFACE</span><span id="coord">X: — &nbsp; Y: —</span></div>
+        </div>
+        <div class="workspace-footer">
+          <span id="toolStatus">Tool aktif: Kuas neon</span>
+          <span><span class="kbd">Drag</span> gambar &nbsp; <span class="kbd">Space</span> jeda animasi</span>
+        </div>
+      </section>
+    </section>
+  </main>
+
+<script>
+(() => {
+  const canvas = document.getElementById('artCanvas');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const wrap = document.getElementById('canvasWrap');
+  const colorInput = document.getElementById('color');
+  const sizeInput = document.getElementById('size');
+  const intensityInput = document.getElementById('intensity');
+  const speedInput = document.getElementById('speed');
+  const bgInput = document.getElementById('background');
+  const symmetryInput = document.getElementById('symmetry');
+  const glowInput = document.getElementById('glow');
+  const autoInput = document.getElementById('autoArt');
+  const coord = document.getElementById('coord');
+  const toolStatus = document.getElementById('toolStatus');
+
+  let W = 0, H = 0, dpr = 1, tool = 'brush', drawing = false, paused = false;
+  let last = null, particles = [], ripples = [], history = [], tick = 0;
+  let autoTimer = 0, hue = 0;
+  const names = { brush:'Kuas neon', particles:'Partikel', ripple:'Gelombang', geometry:'Geometri' };
+
+  const hexToRgb = hex => {
+    const n = parseInt(hex.slice(1), 16);
+    return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+  };
+  const rgba = (hex, a) => {
+    const c = hexToRgb(hex); return `rgba(${c.r},${c.g},${c.b},${a})`;
+  };
+  const color = () => colorInput.value;
+  const size = () => Number(sizeInput.value);
+  const intensity = () => Number(intensityInput.value) / 100;
+
+  function resize() {
+    const rect = wrap.getBoundingClientRect();
+    const old = document.createElement('canvas');
+    old.width = canvas.width; old.height = canvas.height;
+    if (old.width && old.height) old.getContext('2d').drawImage(canvas, 0, 0);
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = Math.max(1, Math.floor(rect.width));
+    H = Math.max(1, Math.floor(rect.height));
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = bgInput.value; ctx.fillRect(0, 0, W, H);
+    if (old.width && old.height) ctx.drawImage(old, 0, 0, old.width, old.height, 0, 0, W, H);
+  }
+
+  function snapshot() {
+    try {
+      history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+      if (history.length > 12) history.shift();
+    } catch (e) {}
+  }
+  function undo() {
+    const image = history.pop();
+    if (image) {
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.putImageData(image, 0, 0);
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+  }
+  function clear() {
+    snapshot();
+    ctx.save(); ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.fillStyle = bgInput.value; ctx.fillRect(0,0,W,H); ctx.restore();
+    particles = []; ripples = [];
+  }
+  function point(e) {
+    const r = canvas.getBoundingClientRect();
+    return { x:e.clientX-r.left, y:e.clientY-r.top };
+  }
+  function mirrored(p) { return { x:W-p.x, y:p.y }; }
+
+  function line(a, b, mirror=false) {
+    const drawLine = (p1,p2) => {
+      ctx.save();
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.strokeStyle = color(); ctx.lineWidth = size();
+      ctx.globalAlpha = .45 + intensity()*.55;
+      if (glowInput.checked) { ctx.shadowColor = color(); ctx.shadowBlur = size()*1.7*intensity(); }
+      ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke();
+      ctx.restore();
+    };
+    drawLine(a,b);
+    if (mirror) drawLine(mirrored(a), mirrored(b));
+  }
+
+  function emitParticles(p, count=5, mirror=false) {
+    const origin = [p];
+    if (mirror) origin.push(mirrored(p));
+    origin.forEach(o => {
+      for (let i=0;i<count;i++) {
+        const angle = Math.random()*Math.PI*2;
+        const velocity = (Math.random()*2.6+0.5)*(.5+intensity());
+        particles.push({
+          x:o.x, y:o.y, vx:Math.cos(angle)*velocity, vy:Math.sin(angle)*velocity,
+          life:35+Math.random()*45, max:80, r:Math.random()*size()*.18+1.2,
+          color:color(), drag:.985
+        });
+      }
+    });
+  }
+
+  function addRipple(p, mirror=false) {
+    ripples.push({x:p.x,y:p.y,r:2,life:1,color:color(),width:Math.max(1,size()*.09)});
+    if (mirror) { const m=mirrored(p); ripples.push({x:m.x,y:m.y,r:2,life:1,color:color(),width:Math.max(1,size()*.09)}); }
+  }
+
+  function stampGeometry(p, mirror=false) {
+    const stamp = q => {
+      const sides = 3 + Math.floor(Math.random()*5);
+      const radius = size()*(.7+Math.random()*.9);
+      const rotation = Math.random()*Math.PI;
+      ctx.save(); ctx.translate(q.x,q.y); ctx.rotate(rotation);
+      ctx.strokeStyle = color(); ctx.fillStyle = rgba(color(), .10+intensity()*.16);
+      ctx.lineWidth = Math.max(1.2,size()*.055);
+      if (glowInput.checked) { ctx.shadowColor=color(); ctx.shadowBlur=radius*.5*intensity(); }
+      ctx.beginPath();
+      for (let i=0;i<sides;i++) {
+        const a = i/sides*Math.PI*2;
+        const x=Math.cos(a)*radius, y=Math.sin(a)*radius;
+        if (!i) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,radius*.13,0,Math.PI*2); ctx.fillStyle=color(); ctx.fill();
+      ctx.restore();
+    };
+    stamp(p); if (mirror) stamp(mirrored(p));
+  }
+
+  function pointerDown(e) {
+    e.preventDefault(); snapshot(); drawing = true; last = point(e);
+    canvas.setPointerCapture?.(e.pointerId);
+    if (tool==='particles') emitParticles(last,12,symmetryInput.checked);
+    if (tool==='ripple') addRipple(last,symmetryInput.checked);
+    if (tool==='geometry') stampGeometry(last,symmetryInput.checked);
+  }
+  function pointerMove(e) {
+    const p=point(e);
+    coord.textContent=`X: ${Math.round(p.x)}  Y: ${Math.round(p.y)}`;
+    if (!drawing) return;
+    if (tool==='brush' && last) line(last,p,symmetryInput.checked);
+    if (tool==='particles') emitParticles(p,Math.max(2,Math.round(size()/5)),symmetryInput.checked);
+    if (tool==='ripple' && Math.random()>.72) addRipple(p,symmetryInput.checked);
+    if (tool==='geometry' && last && Math.hypot(p.x-last.x,p.y-last.y)>size()*.85) {
+      stampGeometry(p,symmetryInput.checked);
+    }
+    last=p;
+  }
+  function pointerUp() { drawing=false; last=null; }
+
+  function drawParticles() {
+    particles = particles.filter(p => p.life>0);
+    particles.forEach(p => {
+      p.x+=p.vx; p.y+=p.vy; p.vx*=p.drag; p.vy*=p.drag; p.life--;
+      const alpha=Math.max(0,p.life/p.max)*intensity();
+      ctx.save(); ctx.globalAlpha=alpha; ctx.fillStyle=p.color;
+      if (glowInput.checked) { ctx.shadowColor=p.color; ctx.shadowBlur=12*intensity(); }
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill(); ctx.restore();
+    });
+  }
+  function drawRipples() {
+    ripples = ripples.filter(r => r.life>0);
+    ripples.forEach(r => {
+      r.r += (1.2+Number(speedInput.value)/55);
+      r.life -= .012 + (1-intensity())*.01;
+      ctx.save(); ctx.globalAlpha=Math.max(0,r.life)*intensity();
+      ctx.strokeStyle=r.color; ctx.lineWidth=r.width;
+      if (glowInput.checked) { ctx.shadowColor=r.color; ctx.shadowBlur=15*intensity(); }
+      ctx.beginPath(); ctx.arc(r.x,r.y,r.r,0,Math.PI*2); ctx.stroke(); ctx.restore();
+    });
+  }
+  function autoArt() {
+    if (!autoInput.checked) return;
+    autoTimer += Number(speedInput.value)/100;
+    if (autoTimer > 1.3) {
+      autoTimer=0;
+      const p={x:W*(.12+Math.random()*.76),y:H*(.12+Math.random()*.76)};
+      const old=colorInput.value;
+      hue=(hue+31+Math.random()*45)%360;
+      const generated=`hsl(${Math.round(hue)}, 88%, 68%)`;
+      if (tool==='brush') {
+        const q={x:p.x+(Math.random()-.5)*size()*7,y:p.y+(Math.random()-.5)*size()*7};
+        line(p,q,symmetryInput.checked);
+      } else if (tool==='particles') emitParticles(p,10,symmetryInput.checked);
+      else if (tool==='ripple') addRipple(p,symmetryInput.checked);
+      else stampGeometry(p,symmetryInput.checked);
+    }
+  }
+  function animate() {
+    requestAnimationFrame(animate);
+    if (paused) return;
+    tick++;
+    drawParticles(); drawRipples(); autoArt();
+  }
+
+  document.querySelectorAll('.tool').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('.tool').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); tool=btn.dataset.tool;
+    toolStatus.textContent='Tool aktif: '+names[tool];
+  }));
+  canvas.addEventListener('pointerdown',pointerDown);
+  canvas.addEventListener('pointermove',pointerMove);
+  canvas.addEventListener('pointerup',pointerUp);
+  canvas.addEventListener('pointercancel',pointerUp);
+  canvas.addEventListener('pointerleave',pointerUp);
+  document.getElementById('clearBtn').addEventListener('click',clear);
+  document.getElementById('undoBtn').addEventListener('click',undo);
+  document.getElementById('randomBtn').addEventListener('click',() => {
+    snapshot(); clear();
+    const old=colorInput.value;
+    for (let i=0;i<30;i++) {
+      const p={x:Math.random()*W,y:Math.random()*H};
+      if (tool==='particles') emitParticles(p,8,symmetryInput.checked);
+      else if (tool==='ripple') addRipple(p,symmetryInput.checked);
+      else if (tool==='geometry') stampGeometry(p,symmetryInput.checked);
+      else line(p,{x:p.x+(Math.random()-.5)*size()*12,y:p.y+(Math.random()-.5)*size()*12},symmetryInput.checked);
+    }
+  });
+  document.getElementById('exportBtn').addEventListener('click',() => {
+    const out=document.createElement('canvas'); out.width=canvas.width; out.height=canvas.height;
+    out.getContext('2d').drawImage(canvas,0,0);
+    const a=document.createElement('a'); a.download='atelier-artwork-'+Date.now()+'.png'; a.href=out.toDataURL('image/png'); a.click();
+  });
+  document.getElementById('pauseBtn').addEventListener('click',e => {
+    paused=!paused; e.currentTarget.textContent=paused?'▶ Resume':'Ⅱ Pause';
+  });
+  colorInput.addEventListener('input',()=>document.getElementById('colorText').textContent=colorInput.value.toUpperCase());
+  sizeInput.addEventListener('input',()=>document.getElementById('sizeValue').textContent=sizeInput.value+' px');
+  intensityInput.addEventListener('input',()=>document.getElementById('intensityValue').textContent=intensityInput.value+'%');
+  speedInput.addEventListener('input',()=>document.getElementById('speedValue').textContent=speedInput.value+'%');
+  bgInput.addEventListener('change',()=>clear());
+  window.addEventListener('resize',resize);
+  window.addEventListener('keydown',e=>{ if(e.code==='Space' && !['INPUT','SELECT'].includes(document.activeElement.tagName)){e.preventDefault();document.getElementById('pauseBtn').click();} });
+  resize();
+  animate();
+})();
+</script>
+</body>
+</html>
